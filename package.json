@@ -1,0 +1,23 @@
+{
+  "name": "loopback-filters-mixin",
+  "version": "1.0.0",
+  "description": "loopback post database filtering",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": {
+    "name": "BoLaMN",
+    "url": "https://github.com/BoLaMN"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BoLaMN/loopback-filters-mixin"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.4.0",
+    "debug": "^2.2.0",
+    "sift": "^3.2.1"
+  }
+}
