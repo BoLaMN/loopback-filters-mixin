@@ -1,12 +1,8 @@
 debug = require('debug')('loopback:mixins:filters')
 
-{ normalizeComparator, normalizeHashFcn } = require './normalize'
-
 exports.mergeJoin = (a2, comparator, callback, options) ->
   a1 = this
   a3 = []
-
-  comparator = normalizeComparator(comparator, options)
 
   if !options or !options.sorted
     a1 = a1.slice().sort(comparator)
@@ -99,67 +95,42 @@ exports.hashJoin = (a2, hashFcn, callback) ->
   a1 = this
   a3 = []
 
-  addCallback = undefined
+  addCallback = (h, s) ->
+    newElement = callback(h, s)
 
-  hashFcn = normalizeHashFcn(hashFcn)
+    if newElement
+      a3.push newElement
 
-  hashed = undefined
-  scanned = undefined
+    return
 
   if a1.length < a2.length
     hashed = a1
     scanned = a2
-
-    addCallback = (h, s) ->
-      newElement = callback(h, s)
-
-      if newElement
-        a3.push newElement
-
-      return
   else
     hashed = a2
     scanned = a1
 
-    addCallback = (h, s) ->
-      newElement = callback(s, h)
-
-      if newElement
-        a3.push newElement
-
-      return
-
-  if hashed.length == 0
+  if not hashed.length
     scanned.forEach (e) ->
       addCallback null, e
-      return
     return a3
-  else if scanned.length == 0
+  else if not scanned.length
     hashed.forEach (e) ->
       addCallback e, null
-      return
     return a3
 
   hashTable = {}
-  hash = undefined
-  hashBucket = undefined
 
   i = 0
 
   while i < hashed.length
     hashedEntry = hashed[i]
     hash = hashFcn(hashedEntry, i, hashed)
-    hashBucket = hashTable[hash]
+    hashTable[hash] ?= []
 
-    if hashBucket
-      hashBucket.push
-        used: false
-        e: hashedEntry
-    else
-      hashTable[hash] = [ {
-        used: false
-        e: hashedEntry
-      } ]
+    hashTable[hash].push
+      used: false
+      e: hashedEntry
 
     ++i
 
@@ -167,12 +138,10 @@ exports.hashJoin = (a2, hashFcn, callback) ->
 
   while i < scanned.length
     scannedEntry = scanned[i]
-
     hash = hashFcn(scannedEntry, i, scanned)
-    hashBucket = hashTable[hash]
 
-    if hashBucket
-      hashBucket.forEach (hashedEntry) ->
+    if hashTable[hash]
+      hashTable[hash].forEach (hashedEntry) ->
         addCallback hashedEntry.e, scannedEntry
         hashedEntry.used = true
         return
@@ -183,9 +152,8 @@ exports.hashJoin = (a2, hashFcn, callback) ->
 
   Object.keys(hashTable).forEach (hash) ->
     hashTable[hash].forEach (hashedEntry) ->
-      if !hashedEntry.used
+      if not hashedEntry.used
         addCallback hashedEntry.e, null
-      return
-    return
+
   a3
 

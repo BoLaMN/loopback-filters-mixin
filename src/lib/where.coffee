@@ -51,5 +51,5 @@ buildWhere = (where) ->
 
   query
 
-exports.whereFn = (where) ->
+exports.normalizeWhere = (where) ->
   (e) -> sift(buildWhere(where), [e]).length

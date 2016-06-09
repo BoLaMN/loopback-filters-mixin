@@ -1,18 +1,32 @@
-var debug, loopback, proto, queryWrapper, querys, selectFrom, service;
+var JoinQuery, async, debug, loopback, normalizeQuery, proto, queryWrapper, ref, runFilters, selectFrom, service;
 
-querys = require('./lib/query');
+ref = require('./lib/query'), JoinQuery = ref.JoinQuery, normalizeQuery = ref.normalizeQuery;
 
 loopback = require('loopback');
+
+async = require('async');
 
 debug = require('debug')('loopback:mixins:filters');
 
 selectFrom = function(input, selectCallback) {
   var query;
-  query = new querys(input);
+  query = new JoinQuery(input);
   if (selectCallback !== void 0 && selectCallback !== null) {
     query = query.select(selectCallback);
   }
   return query;
+};
+
+runFilters = function(filters, results) {
+  var filteredResults;
+  filteredResults = results;
+  Object.keys(filters).forEach(function(filterName) {
+    var params;
+    params = filters[filterName];
+    debug('running "' + filterName + '" filter with ', params);
+    return filteredResults = service[filterName](filteredResults, params);
+  });
+  return filteredResults;
 };
 
 queryWrapper = function(fcnName) {
@@ -60,31 +74,52 @@ module.exports = function(Model) {
     }
   });
   Model.beforeRemote('**', function(ctx, unused, next) {
-    var context, ref;
+    var context, ref1, steps;
     context = loopback.getCurrentContext();
-    if (context && ((ref = ctx.req.query) != null ? ref.select : void 0)) {
-      debug('settng selectFilter on current ctx to ', ctx.req.query.select);
-      context.set('selectFilter', JSON.parse(ctx.req.query.select));
+    if (context && ((ref1 = ctx.req.query) != null ? ref1.select : void 0)) {
+      debug('settng selectSteps on current ctx to ', ctx.req.query);
+      steps = normalizeQuery(Model, JSON.parse(ctx.req.query.select));
+      ctx.req.query.filter = {
+        where: steps.shift()
+      };
+      context.set('selectSteps', steps);
     }
     return next();
   });
   return Model.afterRemote('**', function(ctx, instance, next) {
-    var context, filters, originalLength;
+    var context, originalLength, steps;
     context = loopback.getCurrentContext();
     if (context) {
-      filters = context.get('selectFilter');
+      steps = context.get('selectSteps');
     }
-    if (filters) {
-      debug('found filters set on current contex', filters);
+    if (steps) {
+      debug('found filters set on current contex', steps);
       originalLength = ctx.result.length;
-      Object.keys(filters).forEach(function(filterName) {
-        var params;
-        params = filters[filterName];
-        debug('running "' + filterName + '" filter with ', params);
-        return ctx.result = service[filterName](ctx.result, params);
+      async.eachSeries(steps, function(filters, done) {
+        var include, query;
+        if (filters.include) {
+          include = filters.include;
+          delete filters.include;
+          query = {
+            relation: include.relation.name,
+            scope: {
+              where: include.where
+            }
+          };
+          return include.relation.modelFrom.include(ctx.result, query, function(err, results) {
+            ctx.result = runFilters(filters, results);
+            return done();
+          });
+        } else {
+          ctx.result = runFilters(filters, ctx.result);
+          return done();
+        }
+      }, function() {
+        debug('results reduced from ' + originalLength + ' rows to ' + ctx.result.length + ' rows');
+        return next(null, ctx);
       });
+    } else {
+      next(null, ctx);
     }
-    debug('results reduced from ' + originalLength + ' rows to ' + ctx.result.length + ' rows');
-    next(null, ctx);
   });
 };

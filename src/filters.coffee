@@ -1,15 +1,28 @@
-querys = require './lib/query'
+{ JoinQuery, normalizeQuery } = require './lib/query'
+
 loopback = require 'loopback'
+async = require 'async'
 
 debug = require('debug')('loopback:mixins:filters')
 
 selectFrom = (input, selectCallback) ->
-  query = new querys(input)
+  query = new JoinQuery(input)
 
   if selectCallback != undefined and selectCallback != null
     query = query.select(selectCallback)
 
   query
+
+runFilters = (filters, results) ->
+  filteredResults = results
+
+  Object.keys(filters).forEach (filterName) ->
+    params = filters[filterName]
+
+    debug 'running "' + filterName + '" filter with ', params
+    filteredResults = service[filterName] filteredResults, params
+
+  filteredResults
 
 queryWrapper = (fcnName) ->
   ->
@@ -53,8 +66,14 @@ module.exports = (Model) ->
     context = loopback.getCurrentContext()
 
     if context and ctx.req.query?.select
-      debug 'settng selectFilter on current ctx to ', ctx.req.query.select
-      context.set 'selectFilter', JSON.parse ctx.req.query.select
+      debug 'settng selectSteps on current ctx to ', ctx.req.query
+
+      steps = normalizeQuery Model, JSON.parse(ctx.req.query.select)
+
+      ctx.req.query.filter =
+        where: steps.shift()
+
+      context.set 'selectSteps', steps
 
     next()
 
@@ -62,21 +81,32 @@ module.exports = (Model) ->
     context = loopback.getCurrentContext()
 
     if context
-      filters = context.get 'selectFilter'
+      steps = context.get 'selectSteps'
 
-    if filters
-      debug 'found filters set on current contex', filters
+    if steps
+      debug 'found filters set on current contex', steps
 
       originalLength = ctx.result.length
 
-      Object.keys(filters).forEach (filterName) ->
-        params = filters[filterName]
+      async.eachSeries steps, (filters, done) ->
+        if filters.include
+          include = filters.include
+          delete filters.include
 
-        debug 'running "' + filterName + '" filter with ', params
-        ctx.result = service[filterName] ctx.result, params
+          query =
+            relation: include.relation.name
+            scope: where: include.where
 
-    debug 'results reduced from ' + originalLength + ' rows to ' + ctx.result.length + ' rows'
+          include.relation.modelFrom.include ctx.result, query, (err, results) ->
+            ctx.result = runFilters filters, results
+            done()
+        else
+          ctx.result = runFilters filters, ctx.result
+          done()
+      , ->
+        debug 'results reduced from ' + originalLength + ' rows to ' + ctx.result.length + ' rows'
+        next null, ctx
 
-    next null, ctx
+    else next null, ctx
 
     return

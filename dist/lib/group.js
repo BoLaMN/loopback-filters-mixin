@@ -1,8 +1,6 @@
-var debug, normalizeComparator, normalizeHashFcn, ref;
+var debug;
 
 debug = require('debug')('loopback:mixins:filters');
-
-ref = require('./normalize'), normalizeComparator = ref.normalizeComparator, normalizeHashFcn = ref.normalizeHashFcn;
 
 exports.sortGroupBy = function(comparator, callback, options) {
   var a, grouped, i, results;
@@ -11,7 +9,6 @@ exports.sortGroupBy = function(comparator, callback, options) {
   if (a.length === 0) {
     return results;
   }
-  comparator = normalizeComparator(comparator, options);
   if (!options || !options.sorted) {
     a = a.slice().sort(comparator);
   }
@@ -31,22 +28,21 @@ exports.sortGroupBy = function(comparator, callback, options) {
 };
 
 exports.hashGroupBy = function(hashFcn, callback) {
-  var a, e, grouped, hash, hashTable, i;
+  var a, e, grouped, hash, i, results;
   a = this;
+  results = {};
   if (a.length === 0) {
     return [];
   }
-  hashFcn = normalizeHashFcn(hashFcn);
-  hashTable = {};
   i = 0;
   while (i < a.length) {
     e = a[i];
     hash = hashFcn(e, i, a);
-    grouped = hashTable[hash];
-    hashTable[hash] = callback(grouped || null, e);
+    grouped = results[hash];
+    results[hash] = callback(grouped || null, e);
     ++i;
   }
-  return Object.keys(hashTable).map(function(hash) {
-    return hashTable[hash];
+  return Object.keys(results).map(function(hash) {
+    return results[hash];
   });
 };

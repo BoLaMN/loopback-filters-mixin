@@ -74,7 +74,7 @@ buildWhere = function(where) {
   return query;
 };
 
-exports.whereFn = function(where) {
+exports.normalizeWhere = function(where) {
   return function(e) {
     return sift(buildWhere(where), [e]).length;
   };

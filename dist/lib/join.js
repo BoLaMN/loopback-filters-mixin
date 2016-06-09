@@ -1,14 +1,11 @@
-var debug, normalizeComparator, normalizeHashFcn, ref;
+var debug;
 
 debug = require('debug')('loopback:mixins:filters');
-
-ref = require('./normalize'), normalizeComparator = ref.normalizeComparator, normalizeHashFcn = ref.normalizeHashFcn;
 
 exports.mergeJoin = function(a2, comparator, callback, options) {
   var a1, a3, addCartesianJoin, addLeft, addRight, compare, getContiguousLength, i1, i2, len1, len2;
   a1 = this;
   a3 = [];
-  comparator = normalizeComparator(comparator, options);
   if (!options || !options.sorted) {
     a1 = a1.slice().sort(comparator);
     a2 = a2.slice().sort(comparator);
@@ -92,75 +89,54 @@ exports.mergeJoin = function(a2, comparator, callback, options) {
 };
 
 exports.hashJoin = function(a2, hashFcn, callback) {
-  var a1, a3, addCallback, hash, hashBucket, hashTable, hashed, hashedEntry, i, scanned, scannedEntry;
+  var a1, a3, addCallback, hash, hashTable, hashed, hashedEntry, i, scanned, scannedEntry;
   a1 = this;
   a3 = [];
-  addCallback = void 0;
-  hashFcn = normalizeHashFcn(hashFcn);
-  hashed = void 0;
-  scanned = void 0;
+  addCallback = function(h, s) {
+    var newElement;
+    newElement = callback(h, s);
+    if (newElement) {
+      a3.push(newElement);
+    }
+  };
   if (a1.length < a2.length) {
     hashed = a1;
     scanned = a2;
-    addCallback = function(h, s) {
-      var newElement;
-      newElement = callback(h, s);
-      if (newElement) {
-        a3.push(newElement);
-      }
-    };
   } else {
     hashed = a2;
     scanned = a1;
-    addCallback = function(h, s) {
-      var newElement;
-      newElement = callback(s, h);
-      if (newElement) {
-        a3.push(newElement);
-      }
-    };
   }
-  if (hashed.length === 0) {
+  if (!hashed.length) {
     scanned.forEach(function(e) {
-      addCallback(null, e);
+      return addCallback(null, e);
     });
     return a3;
-  } else if (scanned.length === 0) {
+  } else if (!scanned.length) {
     hashed.forEach(function(e) {
-      addCallback(e, null);
+      return addCallback(e, null);
     });
     return a3;
   }
   hashTable = {};
-  hash = void 0;
-  hashBucket = void 0;
   i = 0;
   while (i < hashed.length) {
     hashedEntry = hashed[i];
     hash = hashFcn(hashedEntry, i, hashed);
-    hashBucket = hashTable[hash];
-    if (hashBucket) {
-      hashBucket.push({
-        used: false,
-        e: hashedEntry
-      });
-    } else {
-      hashTable[hash] = [
-        {
-          used: false,
-          e: hashedEntry
-        }
-      ];
+    if (hashTable[hash] == null) {
+      hashTable[hash] = [];
     }
+    hashTable[hash].push({
+      used: false,
+      e: hashedEntry
+    });
     ++i;
   }
   i = 0;
   while (i < scanned.length) {
     scannedEntry = scanned[i];
     hash = hashFcn(scannedEntry, i, scanned);
-    hashBucket = hashTable[hash];
-    if (hashBucket) {
-      hashBucket.forEach(function(hashedEntry) {
+    if (hashTable[hash]) {
+      hashTable[hash].forEach(function(hashedEntry) {
         addCallback(hashedEntry.e, scannedEntry);
         hashedEntry.used = true;
       });
@@ -170,9 +146,9 @@ exports.hashJoin = function(a2, hashFcn, callback) {
     i++;
   }
   Object.keys(hashTable).forEach(function(hash) {
-    hashTable[hash].forEach(function(hashedEntry) {
+    return hashTable[hash].forEach(function(hashedEntry) {
       if (!hashedEntry.used) {
-        addCallback(hashedEntry.e, null);
+        return addCallback(hashedEntry.e, null);
       }
     });
   });

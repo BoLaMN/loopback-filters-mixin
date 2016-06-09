@@ -1,4 +1,4 @@
-var JoinQuery, debug, executeAsync, executeSync, hashGroupBy, hashJoin, mergeJoin, normalizeComparator, normalizeSelect, ref, ref1, ref2, ref3, sortGroupBy, whereFn;
+var JoinQuery, debug, executeAsync, executeSync, hashGroupBy, hashJoin, mergeJoin, normalizeComparator, normalizeHashFcn, normalizeQuery, normalizeSelect, normalizeWhere, ref, ref1, ref2, ref3, sortGroupBy;
 
 debug = require('debug')('loopback:mixins:filters');
 
@@ -8,32 +8,36 @@ ref1 = require('./group'), hashGroupBy = ref1.hashGroupBy, sortGroupBy = ref1.so
 
 ref2 = require('./execute'), executeAsync = ref2.executeAsync, executeSync = ref2.executeSync;
 
-ref3 = require('./normalize'), normalizeSelect = ref3.normalizeSelect, normalizeComparator = ref3.normalizeComparator;
+ref3 = require('./normalize'), normalizeQuery = ref3.normalizeQuery, normalizeSelect = ref3.normalizeSelect, normalizeComparator = ref3.normalizeComparator, normalizeHashFcn = ref3.normalizeHashFcn;
 
-whereFn = require('./where').whereFn;
+normalizeWhere = require('./where').normalizeWhere;
 
 JoinQuery = (function() {
-  function JoinQuery(input, op, params) {
-    this.a = input;
+  function JoinQuery(a, op, params) {
+    this.a = a;
     this.op = op;
     this.params = params || [];
     this.result = null;
   }
 
   JoinQuery.prototype.mergeJoin = function(a2, comparator, callback, options) {
-    return new JoinQuery(this, mergeJoin, [a2, comparator, callback, options]);
+    return new JoinQuery(this, mergeJoin, [a2, normalizeComparator(comparator, options), callback, options]);
   };
 
   JoinQuery.prototype.hashJoin = function(a2, hashFcn, callback) {
-    return new JoinQuery(this, hashJoin, [a2, hashFcn, callback]);
+    return new JoinQuery(this, hashJoin, [a2, normalizeHashFcn(hashFcn), callback]);
   };
 
   JoinQuery.prototype.sortGroupBy = function(comparator, callback, options) {
-    return new JoinQuery(this, sortGroupBy, [comparator, callback, options]);
+    return new JoinQuery(this, sortGroupBy, [normalizeComparator(comparator, options), callback, options]);
   };
 
   JoinQuery.prototype.hashGroupBy = function(hashFcn, callback) {
-    return new JoinQuery(this, hashGroupBy, [hashFcn, callback]);
+    return new JoinQuery(this, hashGroupBy, [normalizeHashFcn(hashFcn), callback]);
+  };
+
+  JoinQuery.prototype.group = function(params) {
+    return this.hashGroupBy(params.by, normalizeWhere(params.where));
   };
 
   JoinQuery.prototype.map = function(callback) {
@@ -45,7 +49,7 @@ JoinQuery = (function() {
   };
 
   JoinQuery.prototype.filter = function(params) {
-    return new JoinQuery(this, Array.prototype.filter, [whereFn(params)]);
+    return new JoinQuery(this, Array.prototype.filter, [normalizeWhere(params)]);
     return query;
   };
 
@@ -88,7 +92,10 @@ JoinQuery = (function() {
   };
 
   JoinQuery.prototype.execute = function(options) {
-    if (options && options.async) {
+    if (options == null) {
+      options = {};
+    }
+    if (options.async) {
       return executeAsync(this, options);
     } else {
       return executeSync(this, options);
@@ -99,4 +106,6 @@ JoinQuery = (function() {
 
 })();
 
-module.exports = JoinQuery;
+exports.JoinQuery = JoinQuery;
+
+exports.normalizeQuery = normalizeQuery;

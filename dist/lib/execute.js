@@ -8,17 +8,17 @@ exports.executeAsync = function(query, options) {
   var promises;
   promises = query.params.map(function(param) {
     var ref;
-    if (((ref = param.constructor) != null ? ref.name : void 0) === 'JoinQuery') {
+    if ((param != null ? (ref = param.constructor) != null ? ref.name : void 0 : void 0) === 'JoinQuery') {
       return param.execute(options);
     } else {
       return Promise.resolve(param);
     }
   });
   return Promise.all(promises).then(function(params) {
-    var ref;
+    var ref, ref1;
     if (!(options && options.force) && query.result !== null) {
       return query.result;
-    } else if (((ref = query.a.constructor) != null ? ref.name : void 0) === 'JoinQuery') {
+    } else if ((query != null ? (ref = query.a) != null ? (ref1 = ref.constructor) != null ? ref1.name : void 0 : void 0 : void 0) === 'JoinQuery') {
       return query.a.execute(options).then(function(results) {
         if (!(options && options.force) && query.result !== null) {
           return query.result;
@@ -41,19 +41,19 @@ exports.executeAsync = function(query, options) {
 };
 
 exports.executeSync = function(query, options) {
-  var params, ref;
+  var params, ref, ref1;
   if (!(options && options.force) && query.result !== null) {
     return query.result;
   } else {
     params = query.params.map(function(param) {
       var ref;
-      if (((ref = param.constructor) != null ? ref.name : void 0) === 'JoinQuery') {
+      if ((param != null ? (ref = param.constructor) != null ? ref.name : void 0 : void 0) === 'JoinQuery') {
         return param.execute(options);
       } else {
         return param;
       }
     });
-    if (((ref = query.a.constructor) != null ? ref.name : void 0) === 'JoinQuery') {
+    if ((query != null ? (ref = query.a) != null ? (ref1 = ref.constructor) != null ? ref1.name : void 0 : void 0 : void 0) === 'JoinQuery') {
       query.result = query.a.execute(options);
     } else {
       query.result = query.a;

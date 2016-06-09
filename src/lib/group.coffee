@@ -1,15 +1,11 @@
 debug = require('debug')('loopback:mixins:filters')
 
-{ normalizeComparator, normalizeHashFcn } = require './normalize'
-
 exports.sortGroupBy = (comparator, callback, options) ->
   a = this
   results = []
 
   if a.length == 0
     return results
-
-  comparator = normalizeComparator(comparator, options)
 
   if !options or !options.sorted
     a = a.slice().sort(comparator)
@@ -32,12 +28,10 @@ exports.sortGroupBy = (comparator, callback, options) ->
 
 exports.hashGroupBy = (hashFcn, callback) ->
   a = this
+  results = {}
 
   if a.length == 0
     return []
-
-  hashFcn = normalizeHashFcn(hashFcn)
-  hashTable = {}
 
   i = 0
 
@@ -45,10 +39,10 @@ exports.hashGroupBy = (hashFcn, callback) ->
     e = a[i]
     hash = hashFcn(e, i, a)
 
-    grouped = hashTable[hash]
-    hashTable[hash] = callback(grouped or null, e)
+    grouped = results[hash]
+    results[hash] = callback(grouped or null, e)
 
     ++i
 
-  Object.keys(hashTable).map (hash) ->
-    hashTable[hash]
+  Object.keys(results).map (hash) ->
+    results[hash]
